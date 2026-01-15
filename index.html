@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hacker Math</title>
+    <style>
+        :root { --neon-blue: #00f2ff; --neon-pink: #ff00bd; }
+        body {
+            margin: 0; background: #050508; color: var(--neon-blue);
+            font-family: 'Courier New', monospace; display: flex;
+            justify-content: center; align-items: center; height: 100vh; overflow: hidden;
+        }
+        body::before {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
+            background-size: 100% 4px, 40px 100%; z-index: 10; pointer-events: none;
+        }
+        body.low-hp { animation: emergency-flash 1.5s infinite; }
+        @keyframes emergency-flash {
+            0% { background: #050508; } 50% { background: #200; } 100% { background: #050508; }
+        }
+        .game-frame {
+            background: rgba(0, 0, 0, 0.9); border: 2px solid var(--neon-blue);
+            box-shadow: 0 0 20px var(--neon-blue); padding: 40px; width: 380px; 
+            text-align: center; border-radius: 8px; z-index: 5; position: relative;
+        }
+        .shake { animation: shake-anim 0.2s ease-in-out 2; }
+        @keyframes shake-anim {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        #timer-bar { width: 100%; height: 8px; background: #111; margin-bottom: 20px; border-radius: 4px; overflow: hidden; }
+        #timer-progress { width: 100%; height: 100%; background: var(--neon-pink); box-shadow: 0 0 15px var(--neon-pink); }
+        #equation { font-size: 4rem; font-weight: 900; margin: 20px 0; text-shadow: 0 0 10px var(--neon-blue); }
+        input { 
+            background: transparent; border: 2px solid var(--neon-blue); color: white; 
+            font-size: 2.5rem; width: 140px; text-align: center; outline: none; border-radius: 4px;
+        }
+        .hud { display: flex; justify-content: space-between; margin-top: 35px; font-size: 1.2rem; letter-spacing: 2px; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; padding: 20px; text-align: center;}
+        .btn { background: var(--neon-blue); color: black; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin-top: 20px; font-family: inherit; border-radius: 4px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="game-frame" id="main-frame">
+    <div id="tutorial-overlay" class="overlay">
+        <h2 style="color: var(--neon-pink)">SYSTEM READY</h2>
+        <p>HACK INTO THE BASE <br>GET TO NODE 10</p>
+        <button class="btn" onclick="startGame()">START MISSION</button>
+    </div>
+
+    <div id="win-overlay" class="overlay hidden">
+        <h1 style="color: var(--neon-blue)"><br>MISSION COMPLETE</h1>
+        <p>Level 10 Secured.</p>
+        <button class="btn" onclick="location.reload()">REPLAY</button>
+    </div>
+
+    <div id="game-active">
+        <div id="timer-bar"><div id="timer-progress"></div></div>
+        <div id="equation">--</div>
+        <input type="number" id="ans" autofocus autocomplete="off">
+        <div class="hud">
+            <div>CORE: <span id="hp" style="color:var(--neon-pink)">1</span></div>
+            <div>NODE: <span id="lvl">1</span>/10</div>
+        </div>
+    </div>
+
+    <div id="game-over" class="overlay hidden">
+        <h1 style="color:var(--neon-pink)"> <br> <br>TERMINATED</h1>
+        <button class="btn" onclick="location.reload()">REBOOT</button>
+    </div>
+</div>
+
+<script>
+    let currentAnswer, hp = 1, lvl = 1, timeLeft = 5, maxTime = 5, timerInterval, correctCount = 0;
+    const frame = document.getElementById('main-frame');
+
+    function startGame() {
+        document.getElementById('tutorial-overlay').classList.add('hidden');
+        nextQuestion();
+    }
+
+    function nextQuestion() {
+        if (hp <= 0) return;
+        if (lvl >= 10) return winGame();
+
+        if (hp <= 3) document.body.classList.add('low-hp');
+        else document.body.classList.remove('low-hp');
+
+        const range = 5 + (lvl * 1.5); 
+        const n1 = Math.floor(Math.random() * range) + 1;
+        const n2 = Math.floor(Math.random() * range) + 1;
+        const op = (lvl > 5 && Math.random() > 0.8) ? '*' : (Math.random() > 0.5 ? '+' : '-');
+
+        document.getElementById('equation').textContent = `${n1}${op}${n2}`;
+        currentAnswer = eval(`${n1}${op}${n2}`);
+        
+        document.getElementById('ans').value = '';
+        document.getElementById('ans').focus();
+        
+        maxTime = Math.max(2.0, 5 - (lvl * 0.2)); 
+        timeLeft = maxTime;
+        startTimer();
+    }
+
+    function startTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft -= 0.05;
+            const percent = (timeLeft / maxTime) * 100;
+            document.getElementById('timer-progress').style.width = percent + "%";
+            if (timeLeft <= 0) triggerHurt();
+        }, 50);
+    }
+
+    function triggerHurt() {
+        hp--;
+        document.getElementById('hp').textContent = hp;
+        frame.classList.add('shake');
+        setTimeout(() => frame.classList.remove('shake'), 200);
+        if (hp <= 0) endGame();
+        else nextQuestion();
+    }
+
+    document.getElementById('ans').addEventListener('input', (e) => {
+        if (parseInt(e.target.value) === currentAnswer) {
+            hp += 1; // Reverted back to 1 HP gain
+            correctCount++;
+            
+            // Level up every 4 correct answers
+            if (correctCount >= 4) {
+                lvl++;
+                correctCount = 0;
+                document.getElementById('lvl').textContent = lvl;
+            }
+
+            document.getElementById('hp').textContent = hp;
+            nextQuestion();
+        }
+    });
+
+    function winGame() {
+        clearInterval(timerInterval);
+        document.body.classList.remove('low-hp');
+        document.getElementById('game-active').classList.add('hidden');
+        document.getElementById('win-overlay').classList.remove('hidden');
+    }
+
+    function endGame() {
+        clearInterval(timerInterval);
+        document.body.classList.remove('low-hp');
+        document.getElementById('game-active').classList.add('hidden');
+        document.getElementById('game-over').classList.remove('hidden');
+    }
+</script>
+</body>
+</html>
